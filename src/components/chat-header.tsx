@@ -21,7 +21,7 @@ const ChatHeader = ({
 		},
 	});
 	useEffect(() => {
-		if (timeRemaining === null || timeRemaining <= 0) return;
+		if (timeRemaining === null || timeRemaining < 0) return;
 
 		if (timeRemaining === 0) {
 			router.push("/?destroyed=true");
