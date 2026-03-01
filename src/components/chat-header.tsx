@@ -3,6 +3,12 @@ import { client } from "@/lib/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
+const formatTimeRemaining = (seconds: number) => {
+	const mins = Math.floor(seconds / 60);
+	const secs = seconds % 60;
+	return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+
 const ChatHeader = ({
 	roomId,
 	router,
@@ -19,7 +25,16 @@ const ChatHeader = ({
 			const res = await client.room.ttl.get({ query: { roomId } });
 			return res.data;
 		},
+		refetchInterval: 30000,
 	});
+
+	useEffect(() => {
+		if (ttlData?.ttl !== undefined) {
+			// NOTE: this is giving an error, but it works with no issues. I think it's a bug with the eslint plugin? not sure
+			setTimeRemaining(ttlData.ttl);
+		}
+	}, [ttlData?.ttl]);
+
 	useEffect(() => {
 		if (timeRemaining === null || timeRemaining < 0) return;
 
@@ -28,28 +43,13 @@ const ChatHeader = ({
 			return;
 		}
 
-		const interval = setInterval(() => {
-			setTimeRemaining((prev) => {
-				if (prev === null || prev <= 1) {
-					clearInterval(interval);
-					return 0;
-				}
-				return prev - 1;
-			});
+		const timer = setTimeout(() => {
+			setTimeRemaining((prev) => (prev !== null ? prev - 1 : null));
 		}, 1000);
-		return () => clearInterval(interval);
+
+		return () => clearTimeout(timer);
 	}, [timeRemaining, router]);
 
-	useEffect(() => {
-		if (ttlData?.ttl !== undefined) {
-			setTimeRemaining(ttlData.ttl);
-		}
-	}, [ttlData?.ttl]);
-	const formatTimeRemaining = (seconds: number) => {
-		const mins = Math.floor(seconds / 60);
-		const secs = seconds % 60;
-		return `${mins}:${secs.toString().padStart(2, "0")}`;
-	};
 	const copyLink = () => {
 		const url = window.location.href;
 		navigator.clipboard.writeText(url);
@@ -57,7 +57,7 @@ const ChatHeader = ({
 		setTimeout(() => setCopyStatus("COPY"), 2000);
 	};
 
-	const { mutate: destroyRoom } = useMutation({
+	const { mutate: destroyRoom, isPending } = useMutation({
 		mutationFn: async () => {
 			await client.room.delete(null, { query: { roomId } });
 		},
@@ -94,7 +94,7 @@ const ChatHeader = ({
 				onClick={() => destroyRoom()}
 				className="text-xs bg-zinc-800 hover:bg-red-600 px-3 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all group flex items-center gap-2 disabled:opacity-50"
 			>
-				<span className="group-hover:animate-pulse">X</span>DESTROY NOW
+				{isPending ? "DESTROYING..." : "DESTROY NOW"}
 			</button>
 		</header>
 	);
